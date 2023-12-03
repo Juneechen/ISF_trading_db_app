@@ -1,11 +1,13 @@
 # This file contains the configuration for the ISF application and information about the data schema.
-
 DB_NAME = "seafood_service_v3"
+
+SECRET_DIR = ".streamlit"
+SECRET_FILE = ".streamlit/secrets.toml"
 
 VIEW_ONLY_TABLES = ['customer', 'order_invoice', 'order_item']
 
 TABLE_WITH_DROPDOWN = ['product', 'delivery_zone']
-P_NON_EDITABLE_COLS = ['pid', 'quantity_in_stock']
+
 TABLE_PK = {'category': 'category_name', 
             'coupon': 'coupon_code', 
             'customer': 'cid', 
