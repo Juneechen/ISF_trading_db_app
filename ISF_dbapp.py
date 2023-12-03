@@ -1,43 +1,10 @@
 import pymysql
 import streamlit as st
+import streamlit_authenticator as stauth
 import pandas as pd
 
+import auth as auth
 import isf_config as config 
-
-def connectDB(db_name: str) -> pymysql.connections.Connection:
-    # prompt user for the MySQL username and password
-    # username = input("Enter username: ")
-    username = "root"
-    # pword = input("Enter password: ")
-    pword = "Qwe^44983"
-
-    # Use the user provided username and password values to connect to the database
-    try:
-        connection = pymysql.connect(
-            host= "localhost",
-            user=username,
-            password= pword,
-            database = db_name,
-            cursorclass=pymysql.cursors.Cursor,
-            # cursorclass=pymysql.cursors.DictCursor,
-            autocommit = True)
-        
-        print("--------------------------")
-        print("Connected to", db_name)
-        print("--------------------------")
-        return connection
-
-    # except RuntimeError as e:
-    #     print("Error: ", e.args[0]) 
-    #     # print("Wrong auth or cryptography package not installed")
-    #     return connectDB(db_name)
-
-    except pymysql.Error as e:
-        code, msg = e.args
-        print ("Cannot connect to the database.", code, msg)
-        print("Please try again")
-        return connectDB(db_name)
-    
 
 def get_table_names(my_db: pymysql.connections.Connection):
     cursor = my_db.cursor()
@@ -65,6 +32,7 @@ def get_column_names(my_db: pymysql.connections.Connection, table_name: str):
 
     return col_names
 
+# make procedure for this
 def fetch_categories(my_db: pymysql.connections.Connection):
     st.write("fetching categories from server")
     cursor = my_db.cursor()
@@ -78,6 +46,7 @@ def fetch_categories(my_db: pymysql.connections.Connection):
     # if "category_df" in st.session_state:
     #     return st.session_state["category_df"]["category_name"].tolist() #static
 
+# make procedure for this
 def fetch_partners(my_db: pymysql.connections.Connection):
     st.write("fetching partners from server")
     cursor = my_db.cursor()
@@ -256,10 +225,9 @@ def run_st_tab_view(my_db, table_names, table_keys):
                     st.error(message)
                     
 
-
 def main():
     disconnect = False
-    my_db = connectDB(config.DB_NAME) 
+    my_db = auth.connectDB(config.DB_NAME)
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
@@ -276,4 +244,5 @@ def main():
             print("--------------------------")
 
 if __name__ == '__main__':
+    print("rerun main():")
     main()
