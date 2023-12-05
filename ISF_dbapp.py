@@ -19,7 +19,7 @@ def get_table_names(my_db: pymysql.connections.Connection):
         # tables.append(list(row_dict.values())[0])
     return table_names
 
-def get_column_names(my_db: pymysql.connections.Connection, table_name: str):
+def get_field_names(my_db: pymysql.connections.Connection, table_name: str):
     cursor = my_db.cursor()
     cursor.execute("SHOW COLUMNS FROM " + table_name)
     cols = cursor.fetchall()
@@ -67,7 +67,7 @@ def show_edits(edits_key):
 
 
 def fetch_data(my_db, table_name: str):
-    col_names = get_column_names(my_db, table_name)
+    col_names = get_field_names(my_db, table_name)
 
     # get data from the table
     mycursor = my_db.cursor()
@@ -134,26 +134,37 @@ def make_editor(my_db: pymysql.connections.Connection, table_name: str, table_ke
 
     return df_container, edits_key
 
-
-def update_db(my_db, edits_key: str, table_name: str, table_key: str):
+def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
     '''
-    update the database with the session state
-
     params:
-        my_db: pymysql.connections.Connection
-        key: str, the key name of the session state
-        st.session_state[key]:    {"edited_rows":{}, "added_rows":[], "deleted_rows":[]}
-                                    edited_rows: {row_i: {"col_name": new_value}, ...}
-                                    added_rows: [{col_name: new_value, ...}, ...]
-                                    deleted_rows: [row_i, ...]
-    '''
-    if edits_key not in st.session_state:
-        return
+        table_name: str, name of the table to be deleted from
+        table_key: str, the key name of the session state, for retrieving the pk value from dataframe before deletion
+        deleted_rows: [row_i, ...]
     
-    edited_rows = st.session_state[edits_key]["edited_rows"]
-    added_rows = st.session_state[edits_key]["added_rows"]
-    deleted_rows = st.session_state[edits_key]["deleted_rows"]
+    '''
+    did_not_delete = []
+    error_msg = []
+    mycursor = my_db.cursor()
 
+    # retrieve the pk field name of this table
+    pk_col = config.TABLE_PK[table_name]
+
+    for row_i in deleted_rows:
+        pk_val = st.session_state[table_key].iloc[row_i][pk_col]
+        try:
+            procedure_name = config.PROCEDURES['delete']
+            params = (table_name, pk_col, pk_val)
+            mycursor.callproc(procedure_name, params)
+            print(f"deleted from {table_name} where {pk_col} = {pk_val}")
+        except pymysql.Error as e:
+            code, msg = e.args
+            did_not_delete.append(f"{pk_col} = {pk_val}")
+            error_msg.append(f"Error: {msg}")
+    
+    mycursor.close()
+    return did_not_delete, error_msg
+
+def commit_update(mycursor, table_name: str, table_key: str, edited_rows: dict):
     # update the database for each modified tuple
     for row_i, edit in edited_rows.items():
         row_i = int(row_i)
@@ -162,9 +173,6 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
         for col_name, new_value in edit.items():
             # st.write(f"edited field: {col_name}, new_value: {new_value}")
             pk = st.session_state[table_key].iloc[row_i][config.TABLE_PK[table_name]]
-
-            # update the database
-            mycursor = my_db.cursor()
 
             # try update DB, catch Error
             try:
@@ -185,13 +193,101 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
                 msg2 =f"Modification interupted by {col_name} = '{new_value}'. \nPlease refresh page to see the latest data."
                 mycursor.close()
                 return False, f"{msg2} Error: {code} {msg}"
+            
+    return True, "success"
+    mycursor.close()
 
-            # mycursor.callproc(update_procedure, params)
-            mycursor.close()
-            st.session_state[table_key] = fetch_data(my_db, table_name)
+def commit_insert(my_db, table_name: str, table_key: str, added_rows: list):
+    '''
+    params:
+        added_rows: a list of dictionaries, each dictionary is a row to be inserted; 
+                    field where value is not specified will not be present in the dictionary. 
+                    format:
+                    "added_rows":[
+                        0:{
+                            "p_name":"sweet shrimp 150 g"
+                            "category":"Frozen"
+                            "sell_price":10
+                        }, ...
+                    ]
+    '''
+    did_not_insert = []
+    error_msg = []
+    mycursor = my_db.cursor()
 
-    # if all successful, return True
-    return True, 'success'
+    # retrieve all column names (or editable column names) of the table
+    table_fields = get_field_names(my_db, table_name)
+
+    # for each added row, retrieve the new value for each column if specified, otherwise use None
+    for row in added_rows:
+        params = []
+        for field_name in table_fields:
+            if field_name in row:
+                params.append(row[field_name])
+            else:
+                params.append(None)
+        # call the procedure to insert the row
+        params = tuple(params)
+        try:
+            procedure_name = config.PROCEDURES['create'] + table_name
+            mycursor.callproc(procedure_name, params)
+        except pymysql.Error as e:
+            code, msg = e.args
+            did_not_insert.append(params)
+            error_msg.append(f"Error: {msg}")
+    
+    # update the static df stored in session state with the latest data from the DB using key = table_key
+    # st.session_state[table_key] = fetch_data(my_db, table_name)
+
+    mycursor.close()
+    return did_not_insert, error_msg
+
+def update_db(my_db, edits_key: str, table_name: str, table_key: str):
+    '''
+    commit front-end eidts to DB with edits stored in session state
+
+    params:
+        my_db: pymysql.connections.Connection
+        edits_key: the key for retrieving edits from session state
+        table_name: name of the table to be updated
+        table_key: the key for retrieving the static before-change dataframe from session state
+    '''
+    if edits_key not in st.session_state:
+        return
+    
+    all_sussess = True # for indicating whether all changes were successful
+
+    edited_rows = st.session_state[edits_key]["edited_rows"]
+    added_rows = st.session_state[edits_key]["added_rows"]
+    deleted_rows = st.session_state[edits_key]["deleted_rows"]
+
+    updated, _ = commit_update(my_db.cursor(), table_name, table_key, edited_rows)
+    failed_inserts, insert_errors = commit_insert(my_db, table_name, table_key, added_rows)
+    failed_deletes, delete_errors = commit_delete(my_db, table_name, table_key, deleted_rows)
+
+    if not updated:
+        all_sussess = False
+
+    if len(failed_inserts) > 0:
+        all_sussess = False
+        # st.error("Some rows were not inserted due to error:")
+        for i, row in enumerate(failed_inserts):
+            st.error(f"Failed to insert {row}. {insert_errors[i]}")
+    
+    if len(failed_deletes) > 0:
+        all_sussess = False
+        # st.error("Some rows were not deleted due to error:")
+        for i, row in enumerate(failed_deletes):
+            st.error(f"Failed to delete {failed_deletes[i]}. {delete_errors[i]}")
+
+
+    # mycursor.callproc(update_procedure, params)
+    # mycursor.close()
+    st.session_state[table_key] = fetch_data(my_db, table_name)
+
+    # return True to automatically refresh the tab
+    # return False to let failure messages stay on page and warn user to manually refresh
+    return all_sussess
             
 
 
@@ -217,12 +313,12 @@ def run_st_tab_view(my_db, table_names, table_keys):
             show_edits(edits_key)
             # make a button, on click, update the database
             if st.button(f"Update {table_names[i]}", key=table_names[i] + "_update_btn"):
-                success, message = update_db(my_db, edits_key, table_names[i], table_keys[i])
-                if success:
+                all_sussess = update_db(my_db, edits_key, table_names[i], table_keys[i])
+                if all_sussess:
                     # refresh tab, flush session state, other tabs need to be refreshed manually to see cascading changes
                     st.rerun()
                 else:
-                    st.error(message)
+                    st.warning("Some changes were not successful. Please refresh page to see the latest data.")
                     
 
 def main():
