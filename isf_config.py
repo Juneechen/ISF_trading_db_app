@@ -12,7 +12,7 @@ TABLE_PK = {'category': 'category_name',
             'coupon': 'coupon_code', 
             'customer': 'cid', 
             'delivery_partner': 'partner_id',
-            'delivery_zone': 'zipcode',
+            'delivery_zone': 'area_id',
             'order_id': 'invoice_id',
             'payment': 'payment_type',
             'product': 'pid'}
@@ -28,8 +28,10 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
                   'order_invoice': True,
                   'order_item': True}
 
-
-
-
+# names of the procedures to call for CRUD operations
+PROCEDURES = {'create': 'add_to_',  # I'll call add_to_<table_name> (params: all fields) for create operations
+              'read': 'read_table', # read_table(table_name). This might need to be function as it will return things.
+              'update': 'updata_table', # update_table(table_name, a_single_field, new_value, pk_value). 
+              'delete': 'delete_from'} # delete_from(table_name, pk_field_name, pk_value)
 
 
