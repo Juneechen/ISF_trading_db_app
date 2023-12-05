@@ -119,6 +119,9 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# Mac
+.DS_Store
+
 # Streamlit
 .streamlit/
 
