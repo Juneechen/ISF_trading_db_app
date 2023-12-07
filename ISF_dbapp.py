@@ -317,6 +317,17 @@ def manual_tab_refresh_btn(my_db, table_name):
         st.session_state[table_key] = fetch_data(my_db, table_name)
         st.rerun()
 
+def order_analytics(my_db):
+    mycursor = my_db.cursor()
+    st.subheader("Number of Orders per Customer")
+    mycursor.callproc(config.ANALYTICS["Number of Orders per Customer"], ())
+    result = mycursor.fetchall() # a list of tuples (cid, email, num_orders)
+    mycursor.close()
+    # make the result a dataframe and display with chart view
+    df = pd.DataFrame(result, columns=["cid", "email", "num_orders"])
+    st.dataframe(df)
+    st.bar_chart(df["num_orders"])
+
 def tab_plus_selectbox_view(my_db, table_names, table_keys):
     st.title("ISF Seafood Trading - Admin Portal")
     # make 3 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES, one for 'Visual Analytics'
@@ -335,7 +346,8 @@ def tab_plus_selectbox_view(my_db, table_names, table_keys):
         manual_tab_refresh_btn(my_db, table_name)
 
     with analytics_tab:
-        st.write("Coming soon...")
+        # st.write("Coming soon...")
+        order_analytics(my_db)
 
 
 def main():

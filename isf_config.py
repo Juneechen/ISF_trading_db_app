@@ -52,10 +52,18 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
                   'vendor_supplies_seafood_product': True} # temporary set to uneditable
 
 
-# names of the procedures to call for CRUD operations
+# names of the procedures to call for CRUD and other operations
 PROCEDURES = {'create': 'insert_',  # call insert_<table_name> (params: all fields) for create operations
               'read': 'read_table', # read_table(table_name). This might need to be function as it will return things.
               'update': 'update_table', # update_table(tablename_p, field_p, new_val_p, pk_field_p, pk_val_p)
               'delete': 'delete_from',  # delete_from(table_name, pk_field_name, pk_value)
-              'get_col': 'get_all'} # get_all(col_name, table_name)
+              'get_col': 'get_all',  # get_all(col_name, table_name)
+              'Number of Orders per Customer': 'count_order_per_cid' # count_order_by_cid()
+              } 
 
+# names of the analytics procedures
+ANALYTICS = {'Number of Orders per Customer': 'count_order_per_cid' # count_order_by_cid()
+                        
+                        }
+
+# names of the procedures to call for CRUD and other operations
