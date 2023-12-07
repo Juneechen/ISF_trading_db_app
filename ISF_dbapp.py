@@ -339,7 +339,7 @@ def connectRemoteHost() -> pymysql.connections.Connection:
             # cursorclass=pymysql.cursors.DictCursor,
             autocommit = True)
 
-        print(">>> Connected to remote", st.secrets["db_name"], "<<<")
+        print(">>> Connected to remote", st.secrets["DB_NAME"], "<<<")
         print("-----------------------------------------")
         return connection
     
