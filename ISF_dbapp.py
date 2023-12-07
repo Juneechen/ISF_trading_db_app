@@ -330,11 +330,11 @@ def run_st_tab_view(my_db, table_names, table_keys):
 def connectRemoteHost() -> pymysql.connections.Connection:
     try:
         connection = pymysql.connect(
-            host = st.secrets["db_host"],
-            port = st.secrets["db_port"],
-            user = st.secrets["db_username"],
-            password = st.secrets["db_password"],
-            database = st.secrets["db_name"],
+            host = st.secrets["DB_HOST"],
+            port = st.secrets["DB_PORT"],
+            user = st.secrets["DB_USER"],
+            password = st.secrets["DB_PASSWORD"],
+            database = st.secrets["DB_NAME"],
             cursorclass =pymysql.cursors.Cursor,
             # cursorclass=pymysql.cursors.DictCursor,
             autocommit = True)
