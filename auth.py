@@ -67,3 +67,30 @@ def connectDB(db_name) -> pymysql.connections.Connection:
     my_db = authenticate(db_name, username, password) 
     return my_db
 
+# connect to a remote database with stored credentials on the cloud and return the connection object
+def connectRemoteDB(db_name) -> pymysql.connections.Connection:
+    try:
+        connection = pymysql.connect(
+            host = st.secrets["db_host"],
+            port = st.secrets["db_port"],
+            user = st.secrets["db_username"],
+            password = st.secrets["db_password"],
+            database = st.secrets["db_name"],
+            cursorclass =pymysql.cursors.Cursor,
+            # cursorclass=pymysql.cursors.DictCursor,
+            autocommit = True)
+
+        print(">>> Connected to", db_name, "<<<")
+        print("-----------------------------------------")
+        return connection
+    
+    except pymysql.Error as e:
+        code, msg = e.args
+
+        # print(f"Connection to {config.DB_NAME} failed. Please try again.")
+        print(f"Connection to {config.DB_NAME} failed. Please contact the host for credentials.")
+        print(f"Error code: {code}, Error message: {msg}")
+        print("-----------------------------------------")
+        
+        return None
+

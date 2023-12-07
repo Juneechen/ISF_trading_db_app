@@ -164,38 +164,42 @@ def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
     mycursor.close()
     return did_not_delete, error_msg
 
-def commit_update(mycursor, table_name: str, table_key: str, edited_rows: dict):
-    # update the database for each modified tuple
+
+def commit_update(my_db, table_name: str, table_key: str, edited_rows: dict):
+    '''
+    params:
+        table_name: name of the table to be updated
+        table_key: str, the key for retrieving the pk field name and value of the edited row
+        edited_rows: {row_i: {col_name: new_value, ...}, ...}
+    '''
+    did_not_update = []
+    error_msg = []
+    mycursor = my_db.cursor()
+
+    # retrieve the pk field name of this table
+    pk_field_name = config.TABLE_PK[table_name]
+    procedure_name = config.PROCEDURES['update']
+
+    # update the database for each modified tuple (row)
     for row_i, edit in edited_rows.items():
         row_i = int(row_i)
-        # st.write(f"row_i: {row_i}, edit: {edit}")
-        # enumerate through the columns
-        for col_name, new_value in edit.items():
-            # st.write(f"edited field: {col_name}, new_value: {new_value}")
-            pk = st.session_state[table_key].iloc[row_i][config.TABLE_PK[table_name]]
+        # enumerate through the modified fields
+        for field, new_value in edit.items():
+            pk_val = st.session_state[table_key].iloc[row_i][pk_field_name]
 
-            # try update DB, catch Error
             try:
-                # hardcoded for now, probably need some SQL procedures or functions here
-                if table_name == "product":
-                    if col_name == "sell_price":
-                        new_value = int(new_value)
-                        update_procedure = 'update_product_price'
-                    else:
-                        update_procedure = 'update_product'
-                    params = (table_name, col_name, new_value, pk)
-                    mycursor.callproc(update_procedure, params)
-                else:
-                    mycursor.execute(f"UPDATE {table_name} SET {col_name} = '{new_value}' WHERE {config.TABLE_PK[table_name]} = '{pk}'")
+                print(f"updating {table_name} set {field} = {new_value} where {pk_field_name} = {pk_val}")
+                params = (table_name, field, new_value, pk_field_name, pk_val)
+                mycursor.callproc(procedure_name, params)
 
             except pymysql.Error as e:
+                print(f"failed to update {table_name} set {field} = {new_value} where {pk_field_name} = {pk_val}")
                 code, msg = e.args
-                msg2 =f"Modification interupted by {col_name} = '{new_value}'. \nPlease refresh page to see the latest data."
-                mycursor.close()
-                return False, f"{msg2} Error: {code} {msg}"
-            
-    return True, "success"
+                did_not_update.append(f"{field} = {new_value} where {pk_field_name} = {pk_val}")
+                error_msg.append(f"Error: {msg}")
+                    
     mycursor.close()
+    return did_not_update, error_msg
 
 def commit_insert(my_db, table_name: str, table_key: str, added_rows: list):
     '''
@@ -261,22 +265,22 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
     added_rows = st.session_state[edits_key]["added_rows"]
     deleted_rows = st.session_state[edits_key]["deleted_rows"]
 
-    updated, _ = commit_update(my_db.cursor(), table_name, table_key, edited_rows)
+    failed_updates, update_error = commit_update(my_db, table_name, table_key, edited_rows)
     failed_inserts, insert_errors = commit_insert(my_db, table_name, table_key, added_rows)
     failed_deletes, delete_errors = commit_delete(my_db, table_name, table_key, deleted_rows)
 
-    if not updated:
+    if len(failed_updates) > 0:
         all_sussess = False
+        for i, row in enumerate(failed_updates):
+            st.error(f"Failed to set {row}. {update_error[i]}")
 
     if len(failed_inserts) > 0:
         all_sussess = False
-        # st.error("Some rows were not inserted due to error:")
         for i, row in enumerate(failed_inserts):
             st.error(f"Failed to insert {row}. {insert_errors[i]}")
     
     if len(failed_deletes) > 0:
         all_sussess = False
-        # st.error("Some rows were not deleted due to error:")
         for i, row in enumerate(failed_deletes):
             st.error(f"Failed to delete {failed_deletes[i]}. {delete_errors[i]}")
 
@@ -292,7 +296,7 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
 
 
 def run_st_tab_view(my_db, table_names, table_keys):
-    st.title("ISF Database App")
+    st.title("ISF Seafood Trading - Admin Portal")
     
     # make a tab for each table
     tabs = st.tabs(table_names)
@@ -315,7 +319,8 @@ def run_st_tab_view(my_db, table_names, table_keys):
             if st.button(f"Update {table_names[i]}", key=table_names[i] + "_update_btn"):
                 all_sussess = update_db(my_db, edits_key, table_names[i], table_keys[i])
                 if all_sussess:
-                    # refresh tab, flush session state, other tabs need to be refreshed manually to see cascading changes
+                    # refresh tab, flush session state, 
+                    # other tabs need to be refreshed manually to see cascading changes
                     st.rerun()
                 else:
                     st.warning("Some changes were not successful. Please refresh page to see the latest data.")
@@ -323,7 +328,8 @@ def run_st_tab_view(my_db, table_names, table_keys):
 
 def main():
     disconnect = False
-    my_db = auth.connectDB(config.DB_NAME)
+    # my_db = auth.connectDB(config.DB_NAME)
+    my_db = auth.connectRemoteDB(config.DB_NAME)
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
