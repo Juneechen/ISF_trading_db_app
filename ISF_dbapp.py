@@ -89,49 +89,6 @@ def set_table_sessions(my_db, table_names: list):
     return table_keys
 
 
-
-def make_editor(my_db: pymysql.connections.Connection, table_name: str, table_key: str):
-    data_df = st.session_state[table_key]
-    edits_key = table_name + "_edits"
-
-    # static table, won't update unless the DB is updated
-    st.write("static data in the current session:")
-    st.dataframe(st.session_state[table_key])
-    
-    # generate session key name for editable table
-    st.write("Editable view:")
-    
-    df_container = st.empty()
-    if table_name == "product":
-        df_container.data_editor(st.session_state[table_key], key=edits_key, num_rows="dynamic", 
-                                 disabled=config.VIEW_ONLY_COLS[table_name], 
-                                 column_config={"category": st.column_config.SelectboxColumn(
-                                                        "Product Category",
-                                                        width="medium",
-                                                        options=fetch_categories(my_db),
-                                                        required=True,
-                                                    )
-                                                }
-                                )
-    elif table_name == "delivery_zone":
-        df_container.data_editor(st.session_state[table_key], key=edits_key, num_rows="dynamic",
-                                 column_config={"category": st.column_config.SelectboxColumn(
-                                                        "Assigned Delivery Partner (ID)",
-                                                        disabled=config.VIEW_ONLY_COLS[table_name], 
-                                                        width="medium",
-                                                        options=fetch_partners(my_db),
-                                                        required=True,
-                                                    )
-                                                }
-                                )
-
-    else:
-        df_container.data_editor(st.session_state[table_key], 
-                                 disabled=config.VIEW_ONLY_COLS[table_name], 
-                                 key=edits_key, num_rows="dynamic")
-
-    return df_container, edits_key
-
 def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
     '''
     params:
