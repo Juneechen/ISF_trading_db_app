@@ -55,7 +55,7 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
 
 
 # names of the procedures to call for CRUD and other operations
-PROCEDURES = {'create': 'insert_',  # call insert_<table_name> (params: all fields) for create operations
+PROCEDURES = {'create': 'add_',  # call insert_<table_name> (params: all fields) for create operations
               'read': 'read_table', # read_table(table_name). This might need to be function as it will return things.
               'update': 'update_table', # update_table(tablename_p, field_p, new_val_p, pk_field_p, pk_val_p)
               'delete': 'delete_from',  # delete_from(table_name, pk_field_name, pk_value)
