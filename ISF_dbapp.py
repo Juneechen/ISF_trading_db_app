@@ -30,30 +30,6 @@ def get_field_names(my_db: pymysql.connections.Connection, table_name: str):
 
     return col_names
 
-# make procedure for this
-def fetch_categories(my_db: pymysql.connections.Connection):
-    st.write("fetching categories from server")
-    cursor = my_db.cursor()
-    cursor.execute("SELECT category_name FROM category")
-    categories = cursor.fetchall()
-    cursor.close()
-    categories = [category[0] for category in categories]
-    return categories
-
-    # st.write("fetching categories from session state")
-    # if "category_df" in st.session_state:
-    #     return st.session_state["category_df"]["category_name"].tolist() #static
-
-# make procedure for this
-def fetch_partners(my_db: pymysql.connections.Connection):
-    st.write("fetching partners from server")
-    cursor = my_db.cursor()
-    cursor.execute("SELECT partner_id FROM delivery_partner")
-    partners = cursor.fetchall()
-    cursor.close()
-    partners = [partner[0] for partner in partners] 
-    return partners
-
 
 def show_edits(edits_key):
     # print what the usert has modified
@@ -333,6 +309,35 @@ def make_editable_table(my_db, table_name, table_key):
     
     return edits_key
 
+def manual_tab_refresh_btn(my_db, table_name):
+    table_key = table_name + "_df"
+    if st.button(f"click to see cascading changes if you have modified any other tab", 
+                         key=table_name + "_refresh_btn"):
+        # update static df
+        st.session_state[table_key] = fetch_data(my_db, table_name)
+        st.rerun()
+
+def tab_plus_selectbox_view(my_db, table_names, table_keys):
+    st.title("ISF Seafood Trading - Admin Portal")
+    # make 3 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES, one for 'Visual Analytics'
+    view_only_tab, editable_tab, analytics_tab = st.tabs(["View Only Tales", "Editable Tables", "Visual Analytics"]) 
+    
+    with view_only_tab:
+        # make a dropdown sidebar for each table, select one to view
+        table_name = st.selectbox("Select a table to view", config.VIEW_ONLY_TABLES)
+        st.dataframe(st.session_state[table_name + "_df"]) # key for static df
+    
+    with editable_tab:
+        # make a radio button for each table, select one to edit
+        table_name = st.selectbox("Select a table to edit", config.EDITABLE_TABLES)
+        edits_key = make_editable_table(my_db, table_name, table_name + "_df")
+        show_update_btn(my_db, table_name, edits_key, table_name + "_df")
+        manual_tab_refresh_btn(my_db, table_name)
+
+    with analytics_tab:
+        st.write("Coming soon...")
+
+
 def main():
     disconnect = False
 
@@ -348,7 +353,11 @@ def main():
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
-        run_st_tab_view(my_db, table_names, table_keys)
+        # st.sidebar.title("ISF Seafood Trading - Admin Portal")
+        # run_st_tab_view(my_db, table_names, table_keys)
+        tab_plus_selectbox_view(my_db, table_names, table_keys)
+        
+
 
     except pymysql.Error as e:
         print("Error: %d: %s" % (e.args[0], e.args[1]))
