@@ -1,9 +1,10 @@
 import pymysql
 import pandas as pd
 import streamlit as st
-import sys
 
-import localAuth as auth
+# import sys
+# import localAuth as auth
+
 import isf_config as config 
 
 def get_table_names(my_db: pymysql.connections.Connection):
@@ -355,11 +356,14 @@ def connectRemoteHost() -> pymysql.connections.Connection:
 def main():
     disconnect = False
 
-    # check for command line arguments, if 'local' is passed, connect to local db, otherwise connect to remote db
-    if len(sys.argv) > 1 & (sys.argv[1] == 'local'):
-        my_db = auth.connectLocalDB(config.DB_NAME)
-    else:
-        my_db = connectRemoteHost()
+    # # check for command line arguments, if 'local' is passed, connect to local db, otherwise connect to remote db
+    # if len(sys.argv) > 1 & (sys.argv[1] == 'local'):
+    #     my_db = auth.connectLocalDB(config.DB_NAME)
+    # else:
+    #     my_db = connectRemoteHost()
+
+    # connect to remote hosted database using credentials stored in secrets.toml on the cloud
+    my_db = connectRemoteHost()
 
     try:
         table_names = get_table_names(my_db) 
