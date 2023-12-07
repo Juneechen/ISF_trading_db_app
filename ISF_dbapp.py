@@ -2,9 +2,6 @@ import pymysql
 import pandas as pd
 import streamlit as st
 
-# import sys
-# import localAuth as auth
-
 import isf_config as config 
 
 def get_table_names(my_db: pymysql.connections.Connection):
@@ -293,38 +290,38 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
     # return True to automatically refresh the tab
     # return False to let failure messages stay on page and warn user to manually refresh
     return all_sussess
-            
 
+# make a button, on click, update the database        
+def show_update_btn(my_db, table_name, edits_key, table_key):
+    if st.button(f"Commit Changes", key=table_name + "_update_btn"):
+        all_sussess = update_db(my_db, edits_key, table_name, table_key)
+        if all_sussess:
+            # refresh tab, flush session state, 
+            # other tabs need to be refreshed manually to see cascading changes
+            st.rerun()
+        else:
+            st.warning("Some changes were not successful. Please refresh page to see the latest data.")
 
 def run_st_tab_view(my_db, table_names, table_keys):
     st.title("ISF Seafood Trading - Admin Portal")
-    
-    # make a tab for each table
-    tabs = st.tabs(table_names)
+    tabs = st.tabs(table_names) # make a tab for each table
 
     for i, tab in enumerate(tabs):
         with tab:
-            st.write("current table: ", table_names[i])
-
-            # manual refresh button
+            # manual tab refresh button
             if st.button(f"click to see cascading changes if you have modified any other tab", 
                          key=table_names[i] + "_refresh_btn"):
                 # update static df
                 st.session_state[table_keys[i]] = fetch_data(my_db, table_names[i])
                 st.rerun()
+            
+            if table_names[i] in config.VIEW_ONLY_TABLES: 
+                st.dataframe(st.session_state[table_keys[i]])
 
-            editor, edits_key = make_editor(my_db, table_names[i], table_keys[i])
-            # show what the user has modified
-            show_edits(edits_key)
-            # make a button, on click, update the database
-            if st.button(f"Update {table_names[i]}", key=table_names[i] + "_update_btn"):
-                all_sussess = update_db(my_db, edits_key, table_names[i], table_keys[i])
-                if all_sussess:
-                    # refresh tab, flush session state, 
-                    # other tabs need to be refreshed manually to see cascading changes
-                    st.rerun()
-                else:
-                    st.warning("Some changes were not successful. Please refresh page to see the latest data.")
+            else:
+                edits_key = make_editable_table(my_db, table_names[i], table_keys[i])
+                # show_edits(edits_key)
+                show_update_btn(my_db, table_names[i], edits_key, table_keys[i])
 
 # connect to a remote database with stored credentials on the cloud and return the connection object
 def connectRemoteHost() -> pymysql.connections.Connection:
@@ -352,6 +349,32 @@ def connectRemoteHost() -> pymysql.connections.Connection:
         print("-----------------------------------------")
         
         return None
+    
+
+def make_editable_table(my_db, table_name, table_key):
+    edits_key = table_name + "_edits"
+    mycursor = my_db.cursor()
+    config_dict = {}
+    
+    if table_name in config.TABLE_WITH_DROPDOWN:
+        fk_cols = []
+        options = []
+        for fk_col, referenced_pk, referenced_table in config.TABLE_WITH_DROPDOWN[table_name]:
+            fk_cols.append(fk_col)
+            mycursor.callproc(config.PROCEDURES['get_col'], (referenced_pk, referenced_table))
+            result = mycursor.fetchall()
+            options.append([row[0] for row in result])
+
+        for i, fk_col in enumerate(fk_cols):
+            config_dict[fk_col] = st.column_config.SelectboxColumn(width="medium", 
+                                                                            options=options[i],required=True,)
+    
+    # make a data_editor with selectbox column, make each fk_col a key in column_config
+    st.data_editor(st.session_state[table_key], key=edits_key, num_rows="dynamic", 
+                    disabled=config.VIEW_ONLY_COLS[table_name], 
+                    column_config=config_dict)
+    
+    return edits_key
 
 def main():
     disconnect = False
