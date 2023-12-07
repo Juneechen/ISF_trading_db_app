@@ -1,9 +1,9 @@
 import pymysql
-import streamlit as st
-import streamlit_authenticator as stauth
 import pandas as pd
+import streamlit as st
+import sys
 
-import auth as auth
+import localAuth as auth
 import isf_config as config 
 
 def get_table_names(my_db: pymysql.connections.Connection):
@@ -324,12 +324,43 @@ def run_st_tab_view(my_db, table_names, table_keys):
                     st.rerun()
                 else:
                     st.warning("Some changes were not successful. Please refresh page to see the latest data.")
-                    
+
+# connect to a remote database with stored credentials on the cloud and return the connection object
+def connectRemoteHost() -> pymysql.connections.Connection:
+    try:
+        connection = pymysql.connect(
+            host = st.secrets["db_host"],
+            port = st.secrets["db_port"],
+            user = st.secrets["db_username"],
+            password = st.secrets["db_password"],
+            database = st.secrets["db_name"],
+            cursorclass =pymysql.cursors.Cursor,
+            # cursorclass=pymysql.cursors.DictCursor,
+            autocommit = True)
+
+        print(">>> Connected to remote", st.secrets["db_name"], "<<<")
+        print("-----------------------------------------")
+        return connection
+    
+    except pymysql.Error as e:
+        code, msg = e.args
+
+        # print(f"Connection to {config.DB_NAME} failed. Please try again.")
+        print(f"Connection to {config.DB_NAME} failed. Please contact the host for credentials.")
+        print(f"Error code: {code}, Error message: {msg}")
+        print("-----------------------------------------")
+        
+        return None
 
 def main():
     disconnect = False
-    # my_db = auth.connectDB(config.DB_NAME)
-    my_db = auth.connectRemoteDB(config.DB_NAME)
+
+    # check for command line arguments, if 'local' is passed, connect to local db, otherwise connect to remote db
+    if len(sys.argv) > 1 & (sys.argv[1] == 'local'):
+        my_db = auth.connectLocalDB(config.DB_NAME)
+    else:
+        my_db = connectRemoteHost()
+
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
