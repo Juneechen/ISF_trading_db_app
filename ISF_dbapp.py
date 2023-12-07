@@ -236,7 +236,7 @@ def show_update_btn(my_db, table_name, edits_key, table_key):
             st.warning("Some changes were not successful. Please refresh page to see the latest data.")
 
 def run_st_tab_view(my_db, table_names, table_keys):
-    st.title("ISF Seafood Trading - Admin Portal")
+    st.title(config.SITE_NAME + " - Admin Portal")
     tabs = st.tabs(table_names) # make a tab for each table
 
     for i, tab in enumerate(tabs):
@@ -329,7 +329,7 @@ def order_analytics(my_db):
     st.bar_chart(df["num_orders"])
 
 def tab_plus_selectbox_view(my_db, table_names, table_keys):
-    st.title("ISF Seafood Trading - Admin Portal")
+    st.title(config.SITE_NAME + " - Admin Portal")
     # make 3 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES, one for 'Visual Analytics'
     view_only_tab, editable_tab, analytics_tab = st.tabs(["View Only Tales", "Editable Tables", "Visual Analytics"]) 
     
