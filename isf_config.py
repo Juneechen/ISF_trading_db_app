@@ -14,6 +14,8 @@ DB_NAME = "seafood_service_v4"
 SECRET_DIR = ".streamlit"
 SECRET_FILE = ".streamlit/secrets.toml"
 
+SITE_NAME = "Seafood Trading Co."
+
 VIEW_ONLY_TABLES = ['customer', 'order_invoice', 'order_item', 'delivery', 'vendor_supplies_seafood_product']
 EDITABLE_TABLES = ['category', 'coupon', 'delivery_partner', 'delivery_zone', 'payment', 'product', 'vendor']
 
