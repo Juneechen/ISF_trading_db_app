@@ -4,6 +4,8 @@
 # `category`, `coupon`, `customer`, `delivery`, `delivery_partner`, `delivery_zone`, `order_invoice`, 
 # `order_item`, `payment`, `product`, `vendor`, `vendor_supplies_seafood_product`
 
+
+
 # https://seafoodtradingco.streamlit.app/
 DB_NAME = "seafood_service_v4"
 
@@ -28,12 +30,15 @@ TABLE_WITH_DROPDOWN = {'product': [('category', 'category_name', 'category')],
                     #                                        ('pid', 'pid', 'product')]
                     }   
 
+DELIVERY_STATUS = ['placed','in-transit','delivered']
+
 STRONG_ENTITY = ['customer', 'delivery_partner', 'vendor', 'delivery_zone', 'category', 'product', 'coupon', 'payment']
 
 
 TABLE_PK = {'category': 'category_name', 
             'coupon': 'coupon_code', 
             'customer': 'cid', 
+            'delivery': 'order_id',
             'delivery_partner': 'partner_id',
             'delivery_zone': 'area_id',
             'payment': 'payment_type',
@@ -49,6 +54,7 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
                   'delivery': True,
                   'delivery_zone': False,
                   'delivery_partner': ['partner_id'],
+                  'delivery_status': ['order_id', 'delivery_partner_id'],
                   'payment': False,
                   'order_invoice': True,
                   'order_item': True,

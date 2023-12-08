@@ -51,13 +51,36 @@ def verifyRole(role):
 
 # render content for a verified role
 def renderContentFor(role, my_db, table_names, table_keys):
+    renderMsgFor(role)
     if role == 'admin':
-        st.write("You can edit all tables.")
         tab_plus_selectbox_view(my_db, table_names, table_keys)
     elif role == 'delivery':
-        st.write("You can only edit the delivery table.")
+        table_name = 'delivery'
+        edits_key = delivery_management(my_db, table_name, table_name + "_df")
+        show_update_btn(my_db, table_name, edits_key, table_name + "_df")
+        manual_rerender_btn(my_db, table_name)
+    elif role == 'non-admin':
+        order_analytics(my_db)
     else:
-        st.write("You can only view all tables.")
+        st.header("Features under development")
+
+def renderMsgFor(role):
+    with st.sidebar.container():
+        if role == 'admin':
+            st.write("View only tables:")
+            st.write("- customer related tables")
+            st.write("- managed by the customer site")
+            # st.write("", config.VIEW_ONLY_TABLES)
+            st.write("Editable tables:")
+            st.write("- editable fields: marked with a pen icon")
+            st.write("- view-only fields: auto-incremented ids")
+            # st.write("", config.EDITABLE_TABLES)
+        elif role == 'delivery':
+            st.write("Edit the delivery status!")
+        elif role == 'non-admin':
+            st.write("Check out the visual analytics!")
+        else:
+            st.write("For testing features! ")
 
 
 def show_edits(edits_key):
@@ -281,6 +304,7 @@ def run_st_tab_view(my_db, table_names, table_keys):
                 # show_edits(edits_key)
                 show_update_btn(my_db, table_names[i], edits_key, table_keys[i])
 
+
 # # connect to a remote database with stored credentials on the cloud and return the connection object
 # def connectRemoteHost() -> pymysql.connections.Connection:
 #     try:
@@ -307,8 +331,20 @@ def run_st_tab_view(my_db, table_names, table_keys):
 #         print("-----------------------------------------")
         
 #         return None
-
-    
+def delivery_management(my_db, table_name: str, table_key: str):
+    edits_key = "delivery_status_edits"
+    mycursor = my_db.cursor()
+    config_dict = {"expected_delivery_date": st.column_config.DatetimeColumn(required=True),
+                    "delivery_status": st.column_config.SelectboxColumn(width="medium", 
+                                                                        options=config.DELIVERY_STATUS,required=True,)}
+    st.data_editor(st.session_state[table_key], key=edits_key, 
+                        disabled=config.VIEW_ONLY_COLS["delivery_status"], 
+                        column_config=config_dict)
+        
+        # retrieve count from session state with key for data in this table
+    st.write("Total Records:", len(st.session_state[table_key]))
+    mycursor.close()
+    return edits_key
 
 def make_editable_table(my_db, table_name, table_key):
     edits_key = table_name + "_edits"
@@ -395,7 +431,7 @@ def main():
         table_keys = set_table_sessions(my_db, table_names)
 
         # run_st_tab_view(my_db, table_names, table_keys)
-        role = st.sidebar.selectbox("Select a role", ['admin', 'delivery', 'non-admin'])
+        role = st.sidebar.selectbox("Select a role", ['admin', 'delivery', 'non-admin', "devops"])
         verified = verifyRole(role) # verify role with password, if success, the role will be marked as verified for this session
         if verified:
             renderContentFor(role, my_db, table_names, table_keys)
@@ -413,5 +449,5 @@ def main():
             print("--------------------------")
 
 if __name__ == '__main__':
-    print("rerun main():")
+    print("rerun main()")
     main()
