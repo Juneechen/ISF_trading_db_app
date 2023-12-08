@@ -73,7 +73,7 @@ PROCEDURES = {'create': 'add_',  # call add_<table_name> (params: all fields) fo
 
 # names of the analytics procedures
 ANALYTICS = {'Number of Orders per Customer': 'count_order_per_cid', # count_order_by_cid()
-             'Total records': 'count_by_pk'        # count_by_pk(table_name, pk_field_name)
+             'Best Selling Products by Year': 'get_product_sales' # get_product_sales(year)
                         }
 
 # names of the procedures to call for CRUD and other operations

@@ -1,6 +1,7 @@
 import pymysql
 import pandas as pd
 import streamlit as st
+import time
 
 import isf_config as config 
 
@@ -53,16 +54,16 @@ def verifyRole(role):
 def renderContentFor(role, my_db, table_names, table_keys):
     renderMsgFor(role)
     if role == 'admin':
-        tab_plus_selectbox_view(my_db, table_names, table_keys)
+        admin_content(my_db, table_names, table_keys)
     elif role == 'delivery':
         table_name = 'delivery'
         edits_key = delivery_management(my_db, table_name, table_name + "_df")
         show_update_btn(my_db, table_name, edits_key, table_name + "_df")
         manual_rerender_btn(my_db, table_name)
-    elif role == 'non-admin':
-        order_analytics(my_db)
+    elif role == 'analytics':
+        analytics_content(my_db)
     else:
-        st.header("Features under development")
+        devopsContent(my_db)
 
 def renderMsgFor(role):
     with st.sidebar.container():
@@ -77,23 +78,15 @@ def renderMsgFor(role):
             # st.write("", config.EDITABLE_TABLES)
         elif role == 'delivery':
             st.write("Edit the delivery status!")
-        elif role == 'non-admin':
+        elif role == 'analytics':
             st.write("Check out the visual analytics!")
         else:
             st.write("For testing features! ")
 
 
-def show_edits(edits_key):
-    # print what the usert has modified
-    st.write("Modifications:") 
-    if edits_key in st.session_state:
-        st.write(st.session_state[edits_key]) 
-        # the above automatically refresh with each edit on page, not persistant
-
-
 def fetch_data(my_db, table_name: str):
     '''fetch data from the database and return a dataframe'''
-    col_names = get_field_names(my_db, table_name)
+    col_names = get_fields(my_db, table_name)
     mycursor = my_db.cursor()
     mycursor.execute(f"SELECT * FROM {table_name}")
     result = mycursor.fetchall()
@@ -120,13 +113,12 @@ def get_table_names(my_db: pymysql.connections.Connection):
     return table_names
 
 
-def get_field_names(my_db: pymysql.connections.Connection, table_name: str):
+def get_fields(my_db: pymysql.connections.Connection, table_name: str):
     cursor = my_db.cursor()
     cursor.execute("SHOW COLUMNS FROM " + table_name)
     res = cursor.fetchall() 
     cursor.close()
     return [each[0] for each in res] # a list of field names
-
 
 
 def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
@@ -208,7 +200,7 @@ def commit_insert(my_db, table_name: str, table_key: str, added_rows: list):
                 ]
     '''
     # retrieve all column names (or editable column names) of the table
-    table_fields = get_field_names(my_db, table_name)
+    table_fields = get_fields(my_db, table_name)
     did_not_insert = []
     error_msgs = []
 
@@ -268,69 +260,20 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
             st.error(f"Failed to delete {failed_deletes[i]}. {delete_errors[i]}")
 
     st.session_state[table_key] = fetch_data(my_db, table_name) # update the static df stored in session state with the latest data from DB
-
     return all_sussess
 
 # make a button, on click, update the database        
 def show_update_btn(my_db, table_name, edits_key, table_key):
     if st.button(f"Commit Changes", key=table_name + "_update_btn"):
         all_sussess = update_db(my_db, edits_key, table_name, table_key)
-        if all_sussess: 
-            # refresh tab, flush session state, 
-            # other tabs need to be refreshed manually to see cascading changes
+        if all_sussess: # refresh tab
+            st.success("All changes were successful.")
+            time.sleep(3)
             st.rerun()
         else: # not to refresh so failure messages stay on page, user will have a button for manual refresh
             st.warning("Some changes were not successful. Please refresh page to see the latest data.")
-
-def run_st_tab_view(my_db, table_names, table_keys):
-    st.title(config.SITE_NAME + " - Admin Portal")
-    tabs = st.tabs(table_names) # make a tab for each table
-
-    for i, tab in enumerate(tabs):
-        with tab:
-            # manual tab refresh button
-            # if st.button(f"click to see cascading changes if you have modified any other tab", 
-            #              key=table_names[i] + "_refresh_btn"):
-            #     # update static df
-            #     st.session_state[table_keys[i]] = fetch_data(my_db, table_names[i])
-            #     st.rerun()
-            manual_rerender_btn(my_db, table_names[i])
-            
-            if table_names[i] in config.VIEW_ONLY_TABLES: 
-                st.dataframe(st.session_state[table_keys[i]])
-
-            else:
-                edits_key = make_editable_table(my_db, table_names[i], table_keys[i])
-                # show_edits(edits_key)
-                show_update_btn(my_db, table_names[i], edits_key, table_keys[i])
-
-
-# # connect to a remote database with stored credentials on the cloud and return the connection object
-# def connectRemoteHost() -> pymysql.connections.Connection:
-#     try:
-#         connection = pymysql.connect(
-#             host = st.secrets["DB_HOST"],
-#             port = st.secrets["DB_PORT"],
-#             user = st.secrets["DB_USER"],
-#             password = st.secrets["DB_PASSWORD"],
-#             database = st.secrets["DB_NAME"],
-#             cursorclass =pymysql.cursors.Cursor,
-#             # cursorclass=pymysql.cursors.DictCursor,
-#             autocommit = True)
-
-#         print(">>> Connected to remote DB <<<")
-#         print("-----------------------------------------")
-#         return connection
-    
-#     except pymysql.Error as e:
-#         code, msg = e.args
-
-#         # print(f"Connection to {config.DB_NAME} failed. Please try again.")
-#         print(f"Connection to {config.DB_NAME} failed. Please contact the host for credentials.")
-#         print(f"Error code: {code}, Error message: {msg}")
-#         print("-----------------------------------------")
         
-#         return None
+
 def delivery_management(my_db, table_name: str, table_key: str):
     edits_key = "delivery_status_edits"
     mycursor = my_db.cursor()
@@ -384,21 +327,18 @@ def manual_rerender_btn(my_db, table_name):
         st.session_state[table_key] = fetch_data(my_db, table_name)
         st.rerun()
 
-def order_analytics(my_db):
-    mycursor = my_db.cursor()
-    st.subheader("Number of Orders per Customer")
-    mycursor.callproc(config.ANALYTICS["Number of Orders per Customer"], ())
-    result = mycursor.fetchall() # a list of tuples (cid, email, num_orders)
-    mycursor.close()
-    # make the result a dataframe and display with chart view
-    df = pd.DataFrame(result, columns=["cid", "email", "num_orders"])
-    st.dataframe(df)
-    st.bar_chart(df["num_orders"])
+def analytics_content(my_db):
+    queries = ["Best Selling Products by Year", "Number of Orders per Customer"]
+    sales_by_year, order_per_customer = st.tabs(queries)
+    with sales_by_year:
+        sales_analytics(my_db)
+    with order_per_customer:
+        order_analytics(my_db)
 
-def tab_plus_selectbox_view(my_db, table_names, table_keys):
+def admin_content(my_db, table_names, table_keys):
     st.title(config.SITE_NAME + " - Admin Portal")
-    # make 3 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES, one for 'Visual Analytics'
-    view_only_tab, editable_tab, analytics_tab = st.tabs(["View Only Tales", "Editable Tables", "Visual Analytics"]) 
+    # make 2 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES
+    view_only_tab, editable_tab = st.tabs(["View Only Tales", "Editable Tables"]) 
     
     with view_only_tab:
         # make a dropdown sidebar for each table, select one to view
@@ -414,9 +354,36 @@ def tab_plus_selectbox_view(my_db, table_names, table_keys):
         show_update_btn(my_db, table_name, edits_key, table_name + "_df")
         manual_rerender_btn(my_db, table_name)
 
-    with analytics_tab:
-        # st.write("Coming soon...")
-        order_analytics(my_db)
+def order_analytics(my_db):
+    mycursor = my_db.cursor()
+    st.subheader("Number of Orders per Customer")
+    mycursor.callproc(config.ANALYTICS["Number of Orders per Customer"], ())
+    result = mycursor.fetchall() # a list of tuples (cid, email, num_orders)
+    mycursor.close()
+    # make the result a dataframe and display with chart view
+    df = pd.DataFrame(result, columns=["cid", "email", "num_orders"])
+    st.dataframe(df)
+    st.bar_chart(df["num_orders"])
+
+def sales_analytics(my_db):
+    title = "Best Selling Products by Year"
+    st.subheader(title)
+    in_year = st.text_input("Enter a year", value="2023")
+    mycursor = my_db.cursor()
+    mycursor.callproc(config.ANALYTICS[title], (in_year,))
+    result = mycursor.fetchall()
+    mycursor.close()
+    # make the result a dataframe and display with chart view
+    df = pd.DataFrame(result, columns=["Product", "Sold"])
+    df["Sold"] = df["Sold"].apply(int)
+    st.dataframe(df)
+    st.bar_chart(df, x="Product", y="Sold")
+    
+def devopsContent(my_db):
+    st.header("Features under development")
+    
+    # res = get_fields(my_db, 'customer')
+    # st.write(res)
 
 
 def main():
@@ -431,7 +398,7 @@ def main():
         table_keys = set_table_sessions(my_db, table_names)
 
         # run_st_tab_view(my_db, table_names, table_keys)
-        role = st.sidebar.selectbox("Select a role", ['admin', 'delivery', 'non-admin', "devops"])
+        role = st.sidebar.selectbox("Select a role", ['admin', 'analytics', 'delivery', "devops"])
         verified = verifyRole(role) # verify role with password, if success, the role will be marked as verified for this session
         if verified:
             renderContentFor(role, my_db, table_names, table_keys)
