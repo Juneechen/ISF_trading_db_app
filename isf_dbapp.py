@@ -346,6 +346,7 @@ def admin_content(my_db, table_names, table_keys):
         st.dataframe(st.session_state[table_name + "_df"]) # key for static df
         # retrieve df from session state
         st.write("Total Records:", len(st.session_state[table_name + "_df"]))
+        manual_rerender_btn(my_db, table_name)
     
     with editable_tab:
         # make a radio button for each table, select one to edit
