@@ -28,6 +28,8 @@ TABLE_WITH_DROPDOWN = {'product': [('category', 'category_name', 'category')],
                     #                                        ('pid', 'pid', 'product')]
                     }   
 
+STRONG_ENTITY = ['customer', 'delivery_partner', 'vendor', 'delivery_zone', 'category', 'product', 'coupon', 'payment']
+
 
 TABLE_PK = {'category': 'category_name', 
             'coupon': 'coupon_code', 
@@ -55,7 +57,7 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
 
 
 # names of the procedures to call for CRUD and other operations
-PROCEDURES = {'create': 'add_',  # call insert_<table_name> (params: all fields) for create operations
+PROCEDURES = {'create': 'add_',  # call add_<table_name> (params: all fields) for create operations
               'read': 'read_table', # read_table(table_name). This might need to be function as it will return things.
               'update': 'update_table', # update_table(tablename_p, field_p, new_val_p, pk_field_p, pk_val_p)
               'delete': 'delete_from',  # delete_from(table_name, pk_field_name, pk_value)
@@ -64,8 +66,8 @@ PROCEDURES = {'create': 'add_',  # call insert_<table_name> (params: all fields)
               } 
 
 # names of the analytics procedures
-ANALYTICS = {'Number of Orders per Customer': 'count_order_per_cid' # count_order_by_cid()
-                        
+ANALYTICS = {'Number of Orders per Customer': 'count_order_per_cid', # count_order_by_cid()
+             'Total records': 'count_by_pk'        # count_by_pk(table_name, pk_field_name)
                         }
 
 # names of the procedures to call for CRUD and other operations

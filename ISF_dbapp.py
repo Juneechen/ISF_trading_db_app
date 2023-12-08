@@ -4,58 +4,26 @@ import streamlit as st
 
 import isf_config as config 
 
-def get_table_names(my_db: pymysql.connections.Connection):
-    cursor = my_db.cursor()
-    cursor.execute("SHOW TABLES")
-    tables = cursor.fetchall()
-    cursor.close()
-
-    table_names = []
-    for row in tables:
-        # print(row[0])
-        table_names.append(row[0])
-        # tables.append(list(row_dict.values())[0])
-    return table_names
-
-def get_field_names(my_db: pymysql.connections.Connection, table_name: str):
-    cursor = my_db.cursor()
-    cursor.execute("SHOW COLUMNS FROM " + table_name)
-    cols = cursor.fetchall()
-    cursor.close()
-
-    col_names = []
-    for row in cols:
-        # columns.append(list(row_dict.values())[0])    # for dictionary cursor
-        col_names.append(row[0])
-
-    return col_names
-
-
 def show_edits(edits_key):
     # print what the usert has modified
     st.write("Modifications:") 
-
     if edits_key in st.session_state:
         st.write(st.session_state[edits_key]) 
         # the above automatically refresh with each edit on page, not persistant
 
 
 def fetch_data(my_db, table_name: str):
+    '''fetch data from the database and return a dataframe'''
     col_names = get_field_names(my_db, table_name)
-
-    # get data from the table
     mycursor = my_db.cursor()
     mycursor.execute(f"SELECT * FROM {table_name}")
     result = mycursor.fetchall()
     mycursor.close()
-
-    # store data in a dataframe and display in table view
-    data_df = pd.DataFrame(result, columns=col_names)
-
-    return data_df
+    return pd.DataFrame(result, columns=col_names)
 
 def set_table_sessions(my_db, table_names: list):
-    table_keys = [table_name + "_df" for table_name in table_names]
+    '''define a key for each table to retrieve the dataframe from session state'''
+    table_keys = [table_name + "_df" for table_name in table_names] # 
 
     for ith, table_name in enumerate(table_names):
         if table_keys[ith] not in st.session_state:
@@ -63,6 +31,23 @@ def set_table_sessions(my_db, table_names: list):
             st.session_state[table_keys[ith]] = fetch_data(my_db, table_name)
 
     return table_keys
+
+def get_table_names(my_db: pymysql.connections.Connection):
+    cursor = my_db.cursor()
+    cursor.execute("SHOW TABLES")
+    res = cursor.fetchall()
+    cursor.close()
+    table_names = [each[0] for each in res]
+    return table_names
+
+
+def get_field_names(my_db: pymysql.connections.Connection, table_name: str):
+    cursor = my_db.cursor()
+    cursor.execute("SHOW COLUMNS FROM " + table_name)
+    res = cursor.fetchall() 
+    cursor.close()
+    return [each[0] for each in res] # a list of field names
+
 
 
 def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
@@ -134,52 +119,40 @@ def commit_update(my_db, table_name: str, table_key: str, edited_rows: dict):
 
 def commit_insert(my_db, table_name: str, table_key: str, added_rows: list):
     '''
-    params:
-        added_rows: a list of dictionaries, each dictionary is a row to be inserted; 
-                    field where value is not specified will not be present in the dictionary. 
-                    format:
-                    "added_rows":[
-                        0:{
-                            "p_name":"sweet shrimp 150 g"
-                            "category":"Frozen"
-                            "sell_price":10
-                        }, ...
-                    ]
-    '''
-    did_not_insert = []
-    error_msg = []
-    mycursor = my_db.cursor()
+    added_rows: a list of dictionaries, each dictionary is a row to be inserted; 
+                fields that are not filled-in will not be in the dictionary. 
 
+                "added_rows":[
+                    0:{field1: value1, ...},
+                    1:{field1: value1, field3: value3, ...}, 
+                    ...
+                ]
+    '''
     # retrieve all column names (or editable column names) of the table
     table_fields = get_field_names(my_db, table_name)
+    did_not_insert = []
+    error_msgs = []
 
-    # for each added row, retrieve the new value for each column if specified, otherwise use None
-    for row in added_rows:
-        params = []
-        for field_name in table_fields:
-            if field_name in row:
-                params.append(row[field_name])
-            else:
-                params.append(None)
-        # call the procedure to insert the row
-        params = tuple(params)
+    mycursor = my_db.cursor()
+    for row in added_rows: # retrive new values for each tuple, 
+        params = [row.get(field, None) for field in table_fields] # None for fields that are not filled-in (not in the dictionary)
+        params = tuple(params) # for calling the procedure
         try:
             procedure_name = config.PROCEDURES['create'] + table_name
             mycursor.callproc(procedure_name, params)
         except pymysql.Error as e:
             code, msg = e.args
             did_not_insert.append(params)
-            error_msg.append(f"Error: {msg}")
+            error_msgs.append(f"Error: {msg}")
     
     # update the static df stored in session state with the latest data from the DB using key = table_key
     # st.session_state[table_key] = fetch_data(my_db, table_name)
-
     mycursor.close()
-    return did_not_insert, error_msg
+    return did_not_insert, error_msgs
 
 def update_db(my_db, edits_key: str, table_name: str, table_key: str):
     '''
-    commit front-end eidts to DB with edits stored in session state
+    commit front-end eidts to DB with edits stored in session state.
 
     params:
         my_db: pymysql.connections.Connection
@@ -215,24 +188,19 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
         for i, row in enumerate(failed_deletes):
             st.error(f"Failed to delete {failed_deletes[i]}. {delete_errors[i]}")
 
+    st.session_state[table_key] = fetch_data(my_db, table_name) # update the static df stored in session state with the latest data from DB
 
-    # mycursor.callproc(update_procedure, params)
-    # mycursor.close()
-    st.session_state[table_key] = fetch_data(my_db, table_name)
-
-    # return True to automatically refresh the tab
-    # return False to let failure messages stay on page and warn user to manually refresh
     return all_sussess
 
 # make a button, on click, update the database        
 def show_update_btn(my_db, table_name, edits_key, table_key):
     if st.button(f"Commit Changes", key=table_name + "_update_btn"):
         all_sussess = update_db(my_db, edits_key, table_name, table_key)
-        if all_sussess:
+        if all_sussess: 
             # refresh tab, flush session state, 
             # other tabs need to be refreshed manually to see cascading changes
             st.rerun()
-        else:
+        else: # not to refresh so failure messages stay on page, user will have a button for manual refresh
             st.warning("Some changes were not successful. Please refresh page to see the latest data.")
 
 def run_st_tab_view(my_db, table_names, table_keys):
@@ -242,11 +210,12 @@ def run_st_tab_view(my_db, table_names, table_keys):
     for i, tab in enumerate(tabs):
         with tab:
             # manual tab refresh button
-            if st.button(f"click to see cascading changes if you have modified any other tab", 
-                         key=table_names[i] + "_refresh_btn"):
-                # update static df
-                st.session_state[table_keys[i]] = fetch_data(my_db, table_names[i])
-                st.rerun()
+            # if st.button(f"click to see cascading changes if you have modified any other tab", 
+            #              key=table_names[i] + "_refresh_btn"):
+            #     # update static df
+            #     st.session_state[table_keys[i]] = fetch_data(my_db, table_names[i])
+            #     st.rerun()
+            manual_rerender_btn(my_db, table_names[i])
             
             if table_names[i] in config.VIEW_ONLY_TABLES: 
                 st.dataframe(st.session_state[table_keys[i]])
@@ -282,18 +251,21 @@ def connectRemoteHost() -> pymysql.connections.Connection:
         print("-----------------------------------------")
         
         return None
+
     
 
 def make_editable_table(my_db, table_name, table_key):
     edits_key = table_name + "_edits"
     mycursor = my_db.cursor()
-    config_dict = {}
+    config_dict = {} # a dict of specs for cols with special formatting
     
     if table_name in config.TABLE_WITH_DROPDOWN:
         fk_cols = []
         options = []
+        # for each fk_col, get the list of valid values from the referenced table
         for fk_col, referenced_pk, referenced_table in config.TABLE_WITH_DROPDOWN[table_name]:
             fk_cols.append(fk_col)
+            # call the procedure to get the list of valid valuee given a referenced table and pk_field_name being referenced
             mycursor.callproc(config.PROCEDURES['get_col'], (referenced_pk, referenced_table))
             result = mycursor.fetchall()
             options.append([row[0] for row in result])
@@ -302,16 +274,19 @@ def make_editable_table(my_db, table_name, table_key):
             config_dict[fk_col] = st.column_config.SelectboxColumn(width="medium", 
                                                                             options=options[i],required=True,)
     
-    # make a data_editor with selectbox column, make each fk_col a key in column_config
+    # make a data_editor with selectbox column, each fk_col has a column_config for dropdown options
     st.data_editor(st.session_state[table_key], key=edits_key, num_rows="dynamic", 
                     disabled=config.VIEW_ONLY_COLS[table_name], 
                     column_config=config_dict)
     
+    # retrieve count from session state with key for data in this table
+    st.write("Total Records:", len(st.session_state[table_key]))
+    mycursor.close()
     return edits_key
 
-def manual_tab_refresh_btn(my_db, table_name):
+def manual_rerender_btn(my_db, table_name):
     table_key = table_name + "_df"
-    if st.button(f"click to see cascading changes if you have modified any other tab", 
+    if st.button(f"Click to see cascading changes if you have modified any other table", 
                          key=table_name + "_refresh_btn"):
         # update static df
         st.session_state[table_key] = fetch_data(my_db, table_name)
@@ -337,13 +312,15 @@ def tab_plus_selectbox_view(my_db, table_names, table_keys):
         # make a dropdown sidebar for each table, select one to view
         table_name = st.selectbox("Select a table to view", config.VIEW_ONLY_TABLES)
         st.dataframe(st.session_state[table_name + "_df"]) # key for static df
+        # retrieve df from session state
+        st.write("Total Records:", len(st.session_state[table_name + "_df"]))
     
     with editable_tab:
         # make a radio button for each table, select one to edit
         table_name = st.selectbox("Select a table to edit", config.EDITABLE_TABLES)
         edits_key = make_editable_table(my_db, table_name, table_name + "_df")
         show_update_btn(my_db, table_name, edits_key, table_name + "_df")
-        manual_tab_refresh_btn(my_db, table_name)
+        manual_rerender_btn(my_db, table_name)
 
     with analytics_tab:
         # st.write("Coming soon...")
@@ -352,12 +329,6 @@ def tab_plus_selectbox_view(my_db, table_names, table_keys):
 
 def main():
     disconnect = False
-
-    # # check for command line arguments, if 'local' is passed, connect to local db, otherwise connect to remote db
-    # if len(sys.argv) > 1 & (sys.argv[1] == 'local'):
-    #     my_db = auth.connectLocalDB(config.DB_NAME)
-    # else:
-    #     my_db = connectRemoteHost()
 
     # connect to remote hosted database using credentials stored in secrets.toml on the cloud
     my_db = connectRemoteHost()
@@ -369,8 +340,6 @@ def main():
         # run_st_tab_view(my_db, table_names, table_keys)
         tab_plus_selectbox_view(my_db, table_names, table_keys)
         
-
-
     except pymysql.Error as e:
         print("Error: %d: %s" % (e.args[0], e.args[1]))
 
