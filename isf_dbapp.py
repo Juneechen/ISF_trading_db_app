@@ -4,6 +4,62 @@ import streamlit as st
 
 import isf_config as config 
 
+# cache database connection
+@st.cache_resource
+# connect to the remote hosted MySQL database using streamlit.secrets
+def connectDB(db_name) -> pymysql.connections.Connection:
+    try: 
+        connection = pymysql.connect(
+            host = st.secrets["DB_HOST"],
+            port = st.secrets["DB_PORT"],
+            user = st.secrets["DB_USER"],
+            password = st.secrets["DB_PASSWORD"],
+            database = st.secrets["DB_NAME"],
+            # database = db_name,
+            cursorclass =pymysql.cursors.Cursor,
+            # cursorclass=pymysql.cursors.DictCursor,
+            autocommit = True)
+
+        print(">>> Connected to local", db_name, "<<<")
+        print("-----------------------------------------")
+        return connection
+    except pymysql.Error as e:
+        code, msg = e.args
+        print(f"Connection to {db_name} failed. Please try again.")
+        print(f"Error code: {code}, Error message: {msg}")
+        print("-----------------------------------------")
+        return None
+    
+# display sidebar for selecting a role and enter password to verify before displaying content
+def verifyRole(role):
+    if role in st.session_state:
+        return st.session_state[role]
+    
+    role_verified = False
+    with st.sidebar.container():
+        input_container = st.empty()
+        btn_container = st.empty()
+        role_password = input_container.text_input(f"Enter password: ", type="password", help=f'enter: "{role}pwd"')
+        if btn_container.button("Verify"):
+            role_verified = (role_password == st.secrets[role]) 
+    if role_verified:
+        st.sidebar.success(f"Verified! Logged in as {role} staff.")
+        input_container.empty()
+        btn_container.empty()
+        st.session_state[role] = True
+        return role_verified
+
+# render content for a verified role
+def renderContentFor(role, my_db, table_names, table_keys):
+    if role == 'admin':
+        st.write("You can edit all tables.")
+        tab_plus_selectbox_view(my_db, table_names, table_keys)
+    elif role == 'delivery':
+        st.write("You can only edit the delivery table.")
+    else:
+        st.write("You can only view all tables.")
+
+
 def show_edits(edits_key):
     # print what the usert has modified
     st.write("Modifications:") 
@@ -225,32 +281,32 @@ def run_st_tab_view(my_db, table_names, table_keys):
                 # show_edits(edits_key)
                 show_update_btn(my_db, table_names[i], edits_key, table_keys[i])
 
-# connect to a remote database with stored credentials on the cloud and return the connection object
-def connectRemoteHost() -> pymysql.connections.Connection:
-    try:
-        connection = pymysql.connect(
-            host = st.secrets["DB_HOST"],
-            port = st.secrets["DB_PORT"],
-            user = st.secrets["DB_USER"],
-            password = st.secrets["DB_PASSWORD"],
-            database = st.secrets["DB_NAME"],
-            cursorclass =pymysql.cursors.Cursor,
-            # cursorclass=pymysql.cursors.DictCursor,
-            autocommit = True)
+# # connect to a remote database with stored credentials on the cloud and return the connection object
+# def connectRemoteHost() -> pymysql.connections.Connection:
+#     try:
+#         connection = pymysql.connect(
+#             host = st.secrets["DB_HOST"],
+#             port = st.secrets["DB_PORT"],
+#             user = st.secrets["DB_USER"],
+#             password = st.secrets["DB_PASSWORD"],
+#             database = st.secrets["DB_NAME"],
+#             cursorclass =pymysql.cursors.Cursor,
+#             # cursorclass=pymysql.cursors.DictCursor,
+#             autocommit = True)
 
-        print(">>> Connected to remote DB <<<")
-        print("-----------------------------------------")
-        return connection
+#         print(">>> Connected to remote DB <<<")
+#         print("-----------------------------------------")
+#         return connection
     
-    except pymysql.Error as e:
-        code, msg = e.args
+#     except pymysql.Error as e:
+#         code, msg = e.args
 
-        # print(f"Connection to {config.DB_NAME} failed. Please try again.")
-        print(f"Connection to {config.DB_NAME} failed. Please contact the host for credentials.")
-        print(f"Error code: {code}, Error message: {msg}")
-        print("-----------------------------------------")
+#         # print(f"Connection to {config.DB_NAME} failed. Please try again.")
+#         print(f"Connection to {config.DB_NAME} failed. Please contact the host for credentials.")
+#         print(f"Error code: {code}, Error message: {msg}")
+#         print("-----------------------------------------")
         
-        return None
+#         return None
 
     
 
@@ -331,14 +387,20 @@ def main():
     disconnect = False
 
     # connect to remote hosted database using credentials stored in secrets.toml on the cloud
-    my_db = connectRemoteHost()
+    # my_db = connectRemoteHost()
+    my_db = connectDB(config.DB_NAME) # the connection will be cached for this specific db name so it will only connect once
 
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
-        # st.sidebar.title("ISF Seafood Trading - Admin Portal")
+
         # run_st_tab_view(my_db, table_names, table_keys)
-        tab_plus_selectbox_view(my_db, table_names, table_keys)
+        role = st.sidebar.selectbox("Select a role", ['admin', 'delivery', 'non-admin'])
+        verified = verifyRole(role) # verify role with password, if success, the role will be marked as verified for this session
+        if verified:
+            renderContentFor(role, my_db, table_names, table_keys)
+        else:
+            st.write("Please enter the correct password.")
         
     except pymysql.Error as e:
         print("Error: %d: %s" % (e.args[0], e.args[1]))
