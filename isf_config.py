@@ -4,8 +4,6 @@
 # `category`, `coupon`, `customer`, `delivery`, `delivery_partner`, `delivery_zone`, `order_invoice`, 
 # `order_item`, `payment`, `product`, `vendor`, `vendor_supplies_seafood_product`
 
-
-
 # https://seafoodtradingco.streamlit.app/
 DB_NAME = "seafood_service_v4"
 
@@ -13,15 +11,13 @@ DB_NAME = "seafood_service_v4"
 # DB_PORT=25060
 # DB_NAME="seafood_service_v4"
 
-SECRET_DIR = ".streamlit"
-SECRET_FILE = ".streamlit/secrets.toml"
+# SECRET_DIR = ".streamlit"
+# SECRET_FILE = ".streamlit/secrets.toml"
 
 SITE_NAME = "Seafood Trading Co."
 
 VIEW_ONLY_TABLES = ['customer', 'order_invoice', 'order_item', 'delivery', 'vendor_supplies_seafood_product']
 EDITABLE_TABLES = ['category', 'coupon', 'delivery_partner', 'delivery_zone', 'payment', 'product', 'vendor']
-
-# TABLE_WITH_DROPDOWN = ['product', 'delivery_zone', 'vendor_supplies_seafood_product']
 
 # a dictionary of table_with_dropdown: [(fk_col, referenced_pk, referenced_table), ...]
 TABLE_WITH_DROPDOWN = {'product': [('category', 'category_name', 'category')],
@@ -34,13 +30,12 @@ DELIVERY_STATUS = ['placed','in-transit','delivered']
 
 STRONG_ENTITY = ['customer', 'delivery_partner', 'vendor', 'delivery_zone', 'category', 'product', 'coupon', 'payment']
 
-
 TABLE_PK = {'category': 'category_name', 
             'coupon': 'coupon_code', 
             'customer': 'cid', 
             'delivery': 'order_id',
             'delivery_partner': 'partner_id',
-            'delivery_zone': 'area_id',
+            'delivery_zone': 'zipcode',
             'payment': 'payment_type',
             'product': 'pid',
             'vendor': 'vendor_id',
@@ -51,7 +46,7 @@ VIEW_ONLY_COLS = {'product': ['pid', 'qty_in_stock'],
                   'category': False,
                   'coupon': False,
                   'customer': True,
-                  'delivery': True,
+                  'delivery': ['order_id'],
                   'delivery_zone': False,
                   'delivery_partner': ['partner_id'],
                   'delivery_status': ['order_id', 'delivery_partner_id'],
