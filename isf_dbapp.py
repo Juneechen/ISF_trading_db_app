@@ -44,7 +44,6 @@ def verifyRole(role):
         if btn_container.button("Verify"):
             role_verified = (role_password == st.secrets[role]) 
     if role_verified:
-        st.sidebar.success(f"Verified! Logged in as {role} staff.")
         input_container.empty()
         btn_container.empty()
         st.session_state[role] = True
@@ -67,6 +66,7 @@ def renderContentFor(role, my_db, table_names, table_keys):
 
 def renderMsgFor(role):
     with st.sidebar.container():
+        st.success(f"Verified! Logged in as {role} staff.")
         if role == 'admin':
             st.write("View only tables:")
             st.write("- customer related tables")
@@ -77,9 +77,9 @@ def renderMsgFor(role):
             st.write("- view-only fields: auto-incremented ids")
             # st.write("", config.EDITABLE_TABLES)
         elif role == 'delivery':
-            st.write("Edit the delivery status!")
+            pass # add as needed
         elif role == 'analytics':
-            st.write("Check out the visual analytics!")
+            pass # add as needed
         else:
             st.write("For testing features! ")
 
@@ -275,6 +275,8 @@ def show_update_btn(my_db, table_name, edits_key, table_key):
         
 
 def delivery_management(my_db, table_name: str, table_key: str):
+    st.header("Delivery Management")
+    st.info("Edit the expected data and delivery status for orders you're delivering")
     edits_key = "delivery_status_edits"
     mycursor = my_db.cursor()
     config_dict = {"expected_delivery_date": st.column_config.DatetimeColumn(required=True),
@@ -382,6 +384,7 @@ def sales_analytics(my_db):
     
 def devopsContent(my_db):
     st.header("Features under development")
+    st.info("Contact chen.shuju@northeastern.edu for any technical issues")
     
     # res = get_fields(my_db, 'customer')
     # st.write(res)
@@ -402,9 +405,10 @@ def main():
         role = st.sidebar.selectbox("Select a role", ['admin', 'analytics', 'delivery', "devops"])
         verified = verifyRole(role) # verify role with password, if success, the role will be marked as verified for this session
         if verified:
+            st.header("🍣 🦑 🐟 🐙 🦐")
             renderContentFor(role, my_db, table_names, table_keys)
         else:
-            st.write("Please enter the correct password.")
+            st.info("Hover over the password field tooltip for hints 🤫")
         
     except pymysql.Error as e:
         print("Error: %d: %s" % (e.args[0], e.args[1]))
