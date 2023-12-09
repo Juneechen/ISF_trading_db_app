@@ -31,23 +31,25 @@ def connectDB(db_name) -> pymysql.connections.Connection:
         print("-----------------------------------------")
         return None
     
-# display sidebar for selecting a role and enter password to verify before displaying content
+
+# display sidebar for selecting role and entering password
 def verifyRole(role):
-    if role in st.session_state:
-        return st.session_state[role]
+    if role in st.session_state: # already verified for this session
+        if st.session_state[role] == True: # can be False if logged out
+            return True
     
     role_verified = False
     with st.sidebar.container():
         input_container = st.empty()
         btn_container = st.empty()
-        role_password = input_container.text_input(f"Enter password: ", type="password", help=f'enter: "{role}pwd"')
-        if btn_container.button("Verify"):
-            role_verified = (role_password == st.secrets[role]) 
+    role_password = input_container.text_input(f"Enter password: ", type="password", help=f'enter: "{role}pwd"')
+    if btn_container.button("Verify"):
+        role_verified = (role_password == st.secrets[role]) 
     if role_verified:
         input_container.empty()
         btn_container.empty()
         st.session_state[role] = True
-        return role_verified
+    return role_verified
 
 # render content for a verified role
 def renderContentFor(role, my_db, table_names, table_keys):
@@ -57,7 +59,7 @@ def renderContentFor(role, my_db, table_names, table_keys):
     elif role == 'delivery':
         table_name = 'delivery'
         edits_key = delivery_management(my_db, table_name, table_name + "_df")
-        show_update_btn(my_db, table_name, edits_key, table_name + "_df")
+        update_btn(my_db, table_name, edits_key, table_name + "_df")
         manual_rerender_btn(my_db, table_name)
     elif role == 'analytics':
         analytics_content(my_db)
@@ -65,6 +67,7 @@ def renderContentFor(role, my_db, table_names, table_keys):
         devopsContent(my_db)
 
 def renderMsgFor(role):
+    '''render a message for the verified role in the sidebar'''
     with st.sidebar.container():
         st.success(f"Verified! Logged in as {role} staff.")
         if role == 'admin':
@@ -81,11 +84,11 @@ def renderMsgFor(role):
         elif role == 'analytics':
             pass # add as needed
         else:
-            st.write("For testing features! ")
+            st.write("For testing features 🛠️")
 
 
 def fetch_data(my_db, table_name: str):
-    '''fetch data from the database and return a dataframe'''
+    '''fetch a table from the database and return a dataframe'''
     col_names = get_fields(my_db, table_name)
     mycursor = my_db.cursor()
     mycursor.execute(f"SELECT * FROM {table_name}")
@@ -105,6 +108,7 @@ def set_table_sessions(my_db, table_names: list):
     return table_keys
 
 def get_table_names(my_db: pymysql.connections.Connection):
+    '''get a list of table names from the database'''
     cursor = my_db.cursor()
     cursor.execute("SHOW TABLES")
     res = cursor.fetchall()
@@ -114,6 +118,7 @@ def get_table_names(my_db: pymysql.connections.Connection):
 
 
 def get_fields(my_db: pymysql.connections.Connection, table_name: str):
+    '''get a list of field names from the database for a given table'''
     cursor = my_db.cursor()
     cursor.execute("SHOW COLUMNS FROM " + table_name)
     res = cursor.fetchall() 
@@ -124,17 +129,14 @@ def get_fields(my_db: pymysql.connections.Connection, table_name: str):
 def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
     '''
     params:
-        table_name: str, name of the table to be deleted from
-        table_key: str, the key name of the session state, for retrieving the pk value from dataframe before deletion
+        table_key: the key for retrieving the data before deletion from session state
         deleted_rows: [row_i, ...]
     
     '''
     did_not_delete = []
     error_msg = []
     mycursor = my_db.cursor()
-
-    # retrieve the pk field name of this table
-    pk_col = config.TABLE_PK[table_name]
+    pk_col = config.TABLE_PK[table_name] #  pk field name of this table
 
     for row_i in deleted_rows:
         pk_val = st.session_state[table_key].iloc[row_i][pk_col]
@@ -142,7 +144,7 @@ def commit_delete(my_db, table_name: str, table_key: str, deleted_rows: list):
             procedure_name = config.PROCEDURES['delete']
             params = (table_name, pk_col, pk_val)
             mycursor.callproc(procedure_name, params)
-            print(f"deleted from {table_name} where {pk_col} = {pk_val}")
+            print(f"deleted from {table_name} where {pk_col} = {pk_val}") # for debugging
         except pymysql.Error as e:
             code, msg = e.args
             did_not_delete.append(f"{pk_col} = {pk_val}")
@@ -163,17 +165,15 @@ def commit_update(my_db, table_name: str, table_key: str, edited_rows: dict):
     error_msg = []
     mycursor = my_db.cursor()
 
-    # retrieve the pk field name of this table
     pk_field_name = config.TABLE_PK[table_name]
     procedure_name = config.PROCEDURES['update']
 
     # update the database for each modified tuple (row)
     for row_i, edit in edited_rows.items():
         row_i = int(row_i)
-        # enumerate through the modified fields
+        pk_val = st.session_state[table_key].iloc[row_i][pk_field_name]
+        # enumerate through the modified fields for this tup;e
         for field, new_value in edit.items():
-            pk_val = st.session_state[table_key].iloc[row_i][pk_field_name]
-
             try:
                 print(f"updating {table_name} set {field} = {new_value} where {pk_field_name} = {pk_val}")
                 params = (table_name, field, new_value, pk_field_name, pk_val)
@@ -263,7 +263,8 @@ def update_db(my_db, edits_key: str, table_name: str, table_key: str):
     return all_sussess
 
 # make a button, on click, update the database        
-def show_update_btn(my_db, table_name, edits_key, table_key):
+def update_btn(my_db, table_name, edits_key, table_key):
+    '''make a button, on click, try update DB with edits stored in session state'''
     if st.button(f"Commit Changes", key=table_name + "_update_btn"):
         all_sussess = update_db(my_db, edits_key, table_name, table_key)
         if all_sussess: # refresh tab
@@ -272,9 +273,10 @@ def show_update_btn(my_db, table_name, edits_key, table_key):
             st.rerun()
         else: # not to refresh so failure messages stay on page, user will have a button for manual refresh
             st.warning("Some changes were not successful. Please refresh page to see the latest data.")
-        
+
 
 def delivery_management(my_db, table_name: str, table_key: str):
+    '''Render a data_editor for delivery management'''
     st.header("Delivery Management")
     st.info("Edit the expected data and delivery status for orders you're delivering")
     edits_key = "delivery_status_edits"
@@ -292,6 +294,7 @@ def delivery_management(my_db, table_name: str, table_key: str):
     return edits_key
 
 def make_editable_table(my_db, table_name, table_key):
+    '''Render a data_editor for an editable table, apply pre-defined column_config'''
     edits_key = table_name + "_edits"
     mycursor = my_db.cursor()
     config_dict = {} # a dict of specs for cols with special formatting
@@ -322,14 +325,16 @@ def make_editable_table(my_db, table_name, table_key):
     return edits_key
 
 def manual_rerender_btn(my_db, table_name):
+    '''make a button, on click, fetch latest data from DB, then re-render the component'''
     table_key = table_name + "_df"
     if st.button(f"Click to see cascading changes if you have modified any other table", 
                          key=table_name + "_refresh_btn"):
-        # update static df
+        # fetch latest data from DB into session state
         st.session_state[table_key] = fetch_data(my_db, table_name)
         st.rerun()
 
 def analytics_content(my_db):
+    '''render analytics content'''
     queries = ["Best Selling Products by Year", "Number of Orders per Customer"]
     sales_by_year, order_per_customer = st.tabs(queries)
     with sales_by_year:
@@ -338,26 +343,25 @@ def analytics_content(my_db):
         order_analytics(my_db)
 
 def admin_content(my_db, table_names, table_keys):
+    '''render admin content'''
     st.title(config.SITE_NAME + " - Admin Portal")
-    # make 2 tabs, one for VIEW_ONLY_TABLES, one for EDITABLE_TABLES
-    view_only_tab, editable_tab = st.tabs(["View Only Tales", "Editable Tables"]) 
-    
-    with view_only_tab:
-        # make a dropdown sidebar for each table, select one to view
-        table_name = st.selectbox("Select a table to view", config.VIEW_ONLY_TABLES)
-        st.dataframe(st.session_state[table_name + "_df"]) # key for static df
-        # retrieve df from session state
-        st.write("Total Records:", len(st.session_state[table_name + "_df"]))
-        manual_rerender_btn(my_db, table_name)
+    editable_tab, view_only_tab = st.tabs(["Editable Tables", "View Only Tables"]) # make tab components
     
     with editable_tab:
-        # make a radio button for each table, select one to edit
+        # table_name dynamically changes with the selectbox
         table_name = st.selectbox("Select a table to edit", config.EDITABLE_TABLES)
         edits_key = make_editable_table(my_db, table_name, table_name + "_df")
-        show_update_btn(my_db, table_name, edits_key, table_name + "_df")
+        update_btn(my_db, table_name, edits_key, table_name + "_df")
+        manual_rerender_btn(my_db, table_name)
+    
+    with view_only_tab:
+        table_name = st.selectbox("Select a table to view", config.VIEW_ONLY_TABLES)
+        st.dataframe(st.session_state[table_name + "_df"]) # key for static df
+        st.write("Total Records:", len(st.session_state[table_name + "_df"]))
         manual_rerender_btn(my_db, table_name)
 
 def order_analytics(my_db):
+    '''render order analytics content generated by stored procedure'''
     mycursor = my_db.cursor()
     st.subheader("Number of Orders per Customer")
     mycursor.callproc(config.ANALYTICS["Number of Orders per Customer"], ())
@@ -369,6 +373,7 @@ def order_analytics(my_db):
     st.bar_chart(df["num_orders"])
 
 def sales_analytics(my_db):
+    '''render sales analytics content generated by stored procedure'''
     title = "Best Selling Products by Year"
     st.subheader(title)
     in_year = st.text_input("Enter a year", value="2023")
@@ -385,30 +390,33 @@ def sales_analytics(my_db):
 def devopsContent(my_db):
     st.header("Features under development")
     st.info("Contact chen.shuju@northeastern.edu for any technical issues")
-    
     # res = get_fields(my_db, 'customer')
     # st.write(res)
 
+def log_out_btn(role):
+    '''log the user out from a specific role'''
+    with st.sidebar.container():
+        if st.button("Log out"):
+            st.session_state[role] = False
+            verifyRole(role)
+            st.rerun()
 
 def main():
     disconnect = False
-
     # connect to remote hosted database using credentials stored in secrets.toml on the cloud
-    # my_db = connectRemoteHost()
     my_db = connectDB(config.DB_NAME) # the connection will be cached for this specific db name so it will only connect once
 
     try:
         table_names = get_table_names(my_db) 
         table_keys = set_table_sessions(my_db, table_names)
-
-        # run_st_tab_view(my_db, table_names, table_keys)
         role = st.sidebar.selectbox("Select a role", ['admin', 'analytics', 'delivery', "devops"])
-        verified = verifyRole(role) # verify role with password, if success, the role will be marked as verified for this session
+        verified = verifyRole(role) # if success, the role will be marked as verified for this session
         if verified:
             st.header("🍣 🦑 🐟 🐙 🦐")
             renderContentFor(role, my_db, table_names, table_keys)
+            log_out_btn(role)
         else:
-            st.info("Hover over the password field tooltip for hints 🤫")
+            st.info(f"Password: {st.secrets[role]} 🤫")
         
     except pymysql.Error as e:
         print("Error: %d: %s" % (e.args[0], e.args[1]))
