@@ -122,6 +122,9 @@ celerybeat.pid
 # Mac
 .DS_Store
 
+# testing
+draft.py
+
 # Streamlit
 .streamlit/
 
