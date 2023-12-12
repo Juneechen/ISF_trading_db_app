@@ -419,7 +419,7 @@ def main():
             st.info(f"Password: {st.secrets[role]} 🤫")
         
     except pymysql.Error as e:
-        print("Error: %d: %s" % (e.args[0], e.args[1]))
+        print("Error:", e.args)
 
     finally:
         if (my_db is not None) & (disconnect == True):
