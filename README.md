@@ -98,7 +98,7 @@ A complete view of user activities:
 
 <!-- auto references -->
 
-[Seafood Trading Co. - Admin Portal]: https://seafoodtradingco-db.streamlit.app
+[Seafood Trading Co. - Admin Portal]: https://seafoodtradingco.streamlit.app
 [Seafood Trading Co. - Customer Site]: https://seafood-delivery.vercel.app
 ["I.S.F.Trading.Co,Inc."]: http://www.seaurchinmaine.com
 [Streamlit Community Cloud]: https://streamlit.io/cloud
