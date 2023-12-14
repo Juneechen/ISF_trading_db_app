@@ -21,7 +21,7 @@ def connectDB(db_name) -> pymysql.connections.Connection:
             # cursorclass=pymysql.cursors.DictCursor,
             autocommit = True)
 
-        print(">>> Connected to local", db_name, "<<<")
+        print(">>> Connected to ", db_name, "<<<")
         print("-----------------------------------------")
         return connection
     except pymysql.Error as e:

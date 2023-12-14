@@ -4,12 +4,8 @@
 # `category`, `coupon`, `customer`, `delivery`, `delivery_partner`, `delivery_zone`, `order_invoice`, 
 # `order_item`, `payment`, `product`, `vendor`, `vendor_supplies_seafood_product`
 
-# https://seafoodtradingco.streamlit.app/
+# https://seafoodtradingco-db.streamlit.app/
 DB_NAME = "seafood_service_v4"
-
-# DB_HOST="db-mysql-nyc1-26951-do-user-14685697-0.c.db.ondigitalocean.com"
-# DB_PORT=25060
-# DB_NAME="seafood_service_v4"
 
 # SECRET_DIR = ".streamlit"
 # SECRET_FILE = ".streamlit/secrets.toml"
