@@ -4,7 +4,7 @@
 # `category`, `coupon`, `customer`, `delivery`, `delivery_partner`, `delivery_zone`, `order_invoice`, 
 # `order_item`, `payment`, `product`, `vendor`, `vendor_supplies_seafood_product`
 
-# https://seafoodtradingco-db.streamlit.app/
+# https://seafoodtradingco.streamlit.app/
 DB_NAME = "seafood_service_v4"
 
 # SECRET_DIR = ".streamlit"
