@@ -79,17 +79,17 @@ If successfully verified, you can then access the corresponding content. To give
 - Delivery staff: Can view the "delivery" table, can edit "expected_delivery_date" and "delivery_status".
 
 A complete view of user activities:
-![img](database_schema/flowchart-admin.png)
+![img](database/flowchart-admin.png)
 
 ## The Underlying MySQL Database Schema
 
 ### Conceptual Design (UML Diagram):
 
-![img](database_schema/UML_Diagram.png)
+![img](database/UML_Diagram.png)
 
 ### Logical Design (Reverse Engineer)
 
-![img](database_schema/logical_design.png)
+![img](database/logical_design.png)
 
 ### Future Work
 
